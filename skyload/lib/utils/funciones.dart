@@ -266,26 +266,10 @@ void mostrarAlerta(BuildContext context, String titulo, String mensaje, AlertTyp
       return Container(
         child: Column(
           children: [
-            // if(tipoAlerta == AlertType.error)
-            // Container(
-            //   margin: EdgeInsets.zero,
-            //   child: Image.asset('assets/errorAlert.png'),
-            // ),
-            // if(tipoAlerta == AlertType.success)
-            // Container(
-            //   margin: EdgeInsets.zero,
-            //   child: Image.asset('assets/successAlert.png'),
-            // ),
-            // if(tipoAlerta == AlertType.info)
-            // Container(
-            //   margin: EdgeInsets.zero,
-            //   child: Image.asset('assets/infoAlert.png'),
-            // ),
-            // if(tipoAlerta == AlertType.none)
-            // Container(
-            //   margin: EdgeInsets.zero,
-            //   child: Image.asset('assets/iconos/iconoInfo.png'),
-            // ),
+            Container(
+              margin: EdgeInsets.zero,
+              child: Image.asset('assets/informacion.png'),
+            ),
             TextoManrope(
               text: mensaje, 
               fontSize: MediaQuery.of(context).size.width * 0.035, 

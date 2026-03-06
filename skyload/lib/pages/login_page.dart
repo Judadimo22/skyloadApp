@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:skyload/pages/loads_page.dart';
 import 'package:skyload/utils/funciones.dart';
 import 'package:skyload/widgets/buttons/boton_principal.dart';
 import 'package:skyload/widgets/inputs/input_password.dart';
@@ -52,6 +53,7 @@ class LoginPageState extends State<LoginPage> {
       );
 
       var jsonResponse = jsonDecode(response.body);
+      print(jsonResponse);
 
       if (jsonResponse['status']) {
         setState(() {
@@ -62,10 +64,11 @@ class LoginPageState extends State<LoginPage> {
         var myToken = jsonResponse['token'];
         prefs.setString('token', myToken);
         Map<String, dynamic> jwtDecodedToken = JwtDecoder.decode(myToken);
-        prefs.setString('correoUsuario', jwtDecodedToken['correo'] );
-        prefs.setString('nombreUsuario', jwtDecodedToken['nombre'] );
-        // Navigator.push(context,MaterialPageRoute(builder: (context) => DashBoard(token: myToken)));
-        AlertaCargando.hide(); 
+        prefs.setString('correoUsuario', jwtDecodedToken['email'] );
+        if(jsonResponse['status'] == true){
+          AlertaCargando.hide(); 
+          Navigator.push(context,MaterialPageRoute(builder: (context) => LoadsPage(token: myToken)));
+        }
       } else {
         AlertaCargando.hide(); 
         mostrarAlerta(
@@ -117,15 +120,7 @@ class LoginPageState extends State<LoginPage> {
           width: MediaQuery.of(context).size.width,
           height: MediaQuery.of(context).size.height,
           decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Color(0xFF044B7F), 
-                Color(0xFF107E7D),
-                Color(0xFFD8E214)
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+            color: colorPrincipal
           ),
           child: SingleChildScrollView(
             child: Column(
@@ -148,7 +143,7 @@ class LoginPageState extends State<LoginPage> {
                     ),
                     width: MediaQuery.of(context).size.width * 0.6,
                     child: Image.asset(
-                      'assets/logo_white.png',
+                      'assets/logo.png',
                     ),
                   ),
                 ),
@@ -214,7 +209,9 @@ class LoginPageState extends State<LoginPage> {
                   colorInput: Colors.white
                 ),
                 Container(
-                  margin: EdgeInsets.zero,
+                  margin: EdgeInsets.only(
+                    top: MediaQuery.of(context).size.height * 0.035
+                  ),
                   child: BotonPrincipal(
                     margin: EdgeInsets.zero,
                     buttonText: 'INGRESAR',
@@ -229,7 +226,7 @@ class LoginPageState extends State<LoginPage> {
                     textColor: Colors.white,
                     fontSize: MediaQuery.of(context).size.height * 0.020,
                     fontWeight: FontWeight.bold,
-                    backgroundColor: colorSecundario,
+                    backgroundColor: Colors.blueAccent,
                   ),
                 )
               ],
