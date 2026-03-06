@@ -13,16 +13,16 @@ const Color colorPrincipal = Color(0XFF044B7F);
 const Color colorSecundario = Color(0xFF107E7D);
 const Color colorTerciario = Color(0xFFD8E214);
 
-SharedPreferences? estadoGlobal;
+SharedPreferences? StateGlobal;
 
-inicializarEstadoGlobal() async {
-  estadoGlobal ??= await SharedPreferences.getInstance();
+inicializarStateGlobal() async {
+  StateGlobal ??= await SharedPreferences.getInstance();
 }
 
 
 Future<String> getToken() async {
-  await inicializarEstadoGlobal();
-  final token = estadoGlobal?.getString('token');
+  await inicializarStateGlobal();
+  final token = StateGlobal?.getString('token');
   return token ?? '';
 }
 
@@ -93,7 +93,7 @@ http.Response manejarRespuestaHTTP(BuildContext context, http.Response response,
 
     mostrarMensaje(context, AlertType.none, mensaje!, accionErrorRespuesta);
 
-    throw mensaje!;
+    throw mensaje;
   }
 
   if (context.mounted && mensaje != null) {
@@ -147,7 +147,7 @@ void mostrarMensaje(BuildContext context, AlertType tipo, String mensaje,VoidCal
         onPressed: accion ?? () => Navigator.pop(context),
         width: MediaQuery.of(context).size.height * 0.2,
         child: Text(
-          "Aceptar",
+          "Accept",
           style: GoogleFonts.manrope(
             color: colorPrincipal,
             fontSize: MediaQuery.of(context).size.width * 0.035,
@@ -161,9 +161,9 @@ void mostrarMensaje(BuildContext context, AlertType tipo, String mensaje,VoidCal
   ).show();
 }
 
-class AlertaCargando {
+class AlertaLoading {
   static OverlayEntry? _overlayEntry;
-  static void show(BuildContext context, [String mensaje = "Cargando..."]) {
+  static void show(BuildContext context, [String mensaje = "Loading..."]) {
     if (_overlayEntry != null) return;
     _overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
@@ -179,14 +179,14 @@ class AlertaCargando {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   width: MediaQuery.of(context).size.width * 0.5,
-                  height: mensaje == "Cargando..." ? MediaQuery.of(context).size.height * 0.3 : MediaQuery.of(context).size.height * 0.6,
+                  height: mensaje == "Loading..." ? MediaQuery.of(context).size.height * 0.3 : MediaQuery.of(context).size.height * 0.6,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       // Image.asset(
                       //   'assets/iconEdeal.png',
-                      //   width: mensaje != "Cargando..." ? 60 : 70,
-                      //   height: mensaje != "Cargando..." ? 60 : 70,
+                      //   width: mensaje != "Loading..." ? 60 : 70,
+                      //   height: mensaje != "Loading..." ? 60 : 70,
                       // ),
                       const SizedBox(height: 20),
                       const CircularProgressIndicator(
@@ -195,7 +195,7 @@ class AlertaCargando {
                       const SizedBox(height: 20),
                       TextoManrope(
                         text: mensaje,
-                        fontSize: mensaje != "Cargando..." ? MediaQuery.of(context).size.width * 0.03 : MediaQuery.of(context).size.width * 0.04,
+                        fontSize: mensaje != "Loading..." ? MediaQuery.of(context).size.width * 0.03 : MediaQuery.of(context).size.width * 0.04,
                         margin: EdgeInsets.only(
                           top: MediaQuery.of(context).size.height * 0.01,
                         ),
@@ -206,7 +206,7 @@ class AlertaCargando {
                     ],
                   ),
                 ),
-                if (mensaje == "Cargando...")
+                if (mensaje == "Loading...")
                 Positioned(
                   top: 10,
                   right: 10,
@@ -258,7 +258,7 @@ Future<String> obtenerDireccionIPOpcional() async {
   }
 }
 
-void mostrarAlerta(BuildContext context, String titulo, String mensaje, AlertType tipoAlerta, VoidCallback onPressed, bool mostrarSegundoBoton, VoidCallback? onPressedSegundoBoton,String textoBotonAceptar) {
+void mostrarAlerta(BuildContext context, String titulo, String mensaje, AlertType tipoAlerta, VoidCallback onPressed, bool mostrarSegundoBoton, VoidCallback? onPressedSegundoBoton,String textoBotonAccept) {
   Alert(
     context: context,
     type: AlertType.none,
@@ -270,6 +270,7 @@ void mostrarAlerta(BuildContext context, String titulo, String mensaje, AlertTyp
               margin: EdgeInsets.zero,
               child: Image.asset('assets/informacion.png'),
             ),
+
             TextoManrope(
               text: mensaje, 
               fontSize: MediaQuery.of(context).size.width * 0.035, 
@@ -289,7 +290,7 @@ void mostrarAlerta(BuildContext context, String titulo, String mensaje, AlertTyp
         onPressed: onPressed,
         width: MediaQuery.of(context).size.width * 0.4,
         child: TextoManrope(
-          text: textoBotonAceptar,
+          text: textoBotonAccept,
           fontSize: MediaQuery.of(context).size.width* 0.035,
           margin: EdgeInsets.zero,
           textColor: colorPrincipal,

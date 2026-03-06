@@ -3,10 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:skyload/pages/loads_page.dart';
 import 'package:skyload/utils/funciones.dart';
-import 'package:skyload/widgets/buttons/boton_principal.dart';
-import 'package:skyload/widgets/inputs/input_password.dart';
-import 'package:skyload/widgets/inputs/input_principal.dart';
-import 'package:skyload/widgets/texts/texto_manrope.dart';
 import 'package:http/http.dart' as http;
 import 'package:rflutter_alert/rflutter_alert.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
@@ -39,7 +35,7 @@ class LoginPageState extends State<LoginPage> {
   }
   
   void loginUser() async {
-    AlertaCargando.show(context); 
+    AlertaLoading.show(context); 
     if (emailController.text.isNotEmpty && passwordController.text.isNotEmpty) {
       var reqBody = {
         "email": emailController.text,
@@ -66,15 +62,15 @@ class LoginPageState extends State<LoginPage> {
         Map<String, dynamic> jwtDecodedToken = JwtDecoder.decode(myToken);
         prefs.setString('correoUsuario', jwtDecodedToken['email'] );
         if(jsonResponse['status'] == true){
-          AlertaCargando.hide(); 
+          AlertaLoading.hide(); 
           Navigator.push(context,MaterialPageRoute(builder: (context) => LoadsPage(token: myToken)));
         }
       } else {
-        AlertaCargando.hide(); 
+        AlertaLoading.hide(); 
         mostrarAlerta(
           context,
           "Error en el inicio de sesión",
-          "Por favor revisa el correo electrónico y la contraseña y vuelve a intentarlo.",
+          "Por favor revisa el Email y la Password y vuelve a intentarlo.",
           AlertType.none,
           () {
             Navigator.of(context).pop();
@@ -83,7 +79,7 @@ class LoginPageState extends State<LoginPage> {
           () {
             Navigator.of(context).pop();
           }, 
-          'Aceptar'
+          'Accept'
         );
       }
     }
@@ -109,126 +105,207 @@ class LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: Container(
-          padding: EdgeInsets.only(
-            left: MediaQuery.of(context).size.width * 0.15,
-            right: MediaQuery.of(context).size.width * 0.15 
+
+    return Scaffold(
+      body: Container(
+
+        width: double.infinity,
+        height: double.infinity,
+
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Color(0xFF1E3A8A),
+              Color(0xFF2563EB),
+              Color(0xFF3B82F6),
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
           ),
-          width: MediaQuery.of(context).size.width,
-          height: MediaQuery.of(context).size.height,
-          decoration: const BoxDecoration(
-            color: colorPrincipal
-          ),
+        ),
+
+        child: SafeArea(
           child: SingleChildScrollView(
             child: Column(
               children: [
-                TextoManrope(
-                  text: 'BIENVENIDO A',
-                  fontSize: MediaQuery.of(context).size.width * 0.055,
-                  margin: EdgeInsets.only(
-                    top: MediaQuery.of(context).size.height * 0.12,
-                    bottom: MediaQuery.of(context).size.height * 0.015,
-                  ),
-                  textColor: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  alignment: Alignment.center,
+
+                const SizedBox(height: 50),
+
+                /// LOGO
+                Image.asset(
+                  "assets/logo.png",
+                  width: 140,
                 ),
-                Center(
-                  child: Container(
-                    margin: EdgeInsets.only(
-                      bottom: MediaQuery.of(context).size.height * 0.02,
-                    ),
-                    width: MediaQuery.of(context).size.width * 0.6,
-                    child: Image.asset(
-                      'assets/logo.png',
-                    ),
+
+                const SizedBox(height: 20),
+
+                const Text(
+                  "Welcome back",
+                  style: TextStyle(
+                    fontSize: 28,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                TextoManrope(
-                  text: 'Iniciar sesión',
-                  fontSize: MediaQuery.of(context).size.width * 0.06,
-                  margin: EdgeInsets.only(
-                    top: MediaQuery.of(context).size.height * 0.03,
+
+                const SizedBox(height: 8),
+
+                const Text(
+                  "Sign in to continue",
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.white70,
                   ),
-                  textColor: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  alignment: Alignment.centerLeft,
                 ),
+
+                const SizedBox(height: 40),
+
+                /// LOGIN CARD
                 Container(
-                  margin: EdgeInsets.zero,
-                  child: Row(
+                  margin: const EdgeInsets.symmetric(horizontal: 24),
+                  padding: const EdgeInsets.all(28),
+
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(22),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.15),
+                        blurRadius: 25,
+                        offset: const Offset(0, 10),
+                      )
+                    ],
+                  ),
+
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      TextoManrope(
-                        text: '¿No tienes una cuenta?',
-                        fontSize: MediaQuery.of(context).size.width * 0.035,
-                        margin: EdgeInsets.zero,
-                        textColor: Colors.white,
-                        fontWeight: FontWeight.w400,
-                        alignment: Alignment.centerLeft,
+
+                      const Text(
+                        "Login",
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF111827),
+                        ),
                       ),
+
+                      const SizedBox(height: 25),
+
+                      /// EMAIL
+                      const Text(
+                        "Email",
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF3F4F6),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: TextField(
+                          controller: emailController,
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            prefixIcon: Icon(Icons.email_outlined),
+                            hintText: "Enter your email",
+                            contentPadding: EdgeInsets.symmetric(vertical: 16),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      /// PASSWORD
+                      const Text(
+                        "Password",
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF3F4F6),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: TextField(
+                          controller: passwordController,
+                          obscureText: true,
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            prefixIcon: Icon(Icons.lock_outline),
+                            suffixIcon: Icon(Icons.visibility_off),
+                            hintText: "Enter your password",
+                            contentPadding: EdgeInsets.symmetric(vertical: 16),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 30),
+
+                      /// BUTTON
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: ElevatedButton(
+                          onPressed: () {
+
+                            if (emailController.text.isEmpty ||
+                                passwordController.text.isEmpty) {
+
+                              mostrarAlerta(
+                                context,
+                                'Complete the fields',
+                                'Please enter email and password',
+                                AlertType.none,
+                                () { Navigator.pop(context); },
+                                false,
+                                () {},
+                                'Accept'
+                              );
+
+                            } else {
+
+                              loginUser();
+
+                            }
+
+                          },
+
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF2563EB),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            elevation: 6,
+                          ),
+
+                          child: const Text(
+                            "Continue",
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white
+                            ),
+                          ),
+                        ),
+                      ),
+
                     ],
                   ),
                 ),
-                TextoManrope(
-                  text: 'Correo electrónico',
-                  fontSize: MediaQuery.of(context).size.width * 0.035,
-                  margin: EdgeInsets.only(
-                    top: MediaQuery.of(context).size.height * 0.03,
-                    bottom: MediaQuery.of(context).size.height * 0.005,
-                  ),
-                  textColor: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  alignment: Alignment.centerLeft,
-                ),
-                InputPrincipal(
-                  controller: emailController, 
-                  keyboardType: TextInputType.text, 
-                  margin: EdgeInsets.zero, 
-                  textColor: Colors.grey[700], 
-                  colorInput: Colors.white
-                ),
-                TextoManrope(
-                  text: 'Contraseña',
-                  fontSize: MediaQuery.of(context).size.width * 0.035,
-                  margin: EdgeInsets.only(
-                    top: MediaQuery.of(context).size.height * 0.02,
-                    bottom: MediaQuery.of(context).size.height * 0.005,
-                  ),
-                  textColor: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  alignment: Alignment.centerLeft,
-                ),
-                InputPassword(
-                  controller: passwordController, 
-                  keyboardType: TextInputType.text, 
-                  margin: EdgeInsets.zero, 
-                  textColor: Colors.grey[700] , 
-                  colorInput: Colors.white
-                ),
-                Container(
-                  margin: EdgeInsets.only(
-                    top: MediaQuery.of(context).size.height * 0.035
-                  ),
-                  child: BotonPrincipal(
-                    margin: EdgeInsets.zero,
-                    buttonText: 'INGRESAR',
-                    onPressed: () async {
-                      if (emailController.text.isEmpty || passwordController.text.isEmpty) {
-                        mostrarAlerta(context,'Diligencia los campos','Por favor diligencia los campos para poder ingresar',AlertType.none, () {Navigator.of(context).pop();}, false, () {}, 'Aceptar');
-                      } else {
-                        loginUser();
-                      }
-                    },
-                    alignment: Alignment.center,
-                    textColor: Colors.white,
-                    fontSize: MediaQuery.of(context).size.height * 0.020,
-                    fontWeight: FontWeight.bold,
-                    backgroundColor: Colors.blueAccent,
-                  ),
-                )
+
+                const SizedBox(height: 40),
+
               ],
             ),
           ),
