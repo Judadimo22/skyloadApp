@@ -6,10 +6,11 @@ import 'package:skyload/utils/funciones.dart';
 import 'package:http/http.dart' as http;
 import 'package:rflutter_alert/rflutter_alert.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
-
+import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 class LoginPage extends StatefulWidget {
-
   const LoginPage({
     super.key,
   });
@@ -21,7 +22,10 @@ class LoginPage extends StatefulWidget {
 class LoginPageState extends State<LoginPage> {
   TextEditingController emailController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
+
   late SharedPreferences prefs;
+
+  bool _obscurePassword = true;
   bool isLoading = false;
 
   @override
@@ -33,13 +37,112 @@ class LoginPageState extends State<LoginPage> {
   void initSharedPref() async {
     prefs = await SharedPreferences.getInstance();
   }
-  
+
+  /// PERMISOS DE UBICACIÓN
+  Future<bool> requestLocationPermissions() async {
+
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+
+    if (!serviceEnabled) {
+
+      mostrarAlerta(
+        context,
+        "Location disabled",
+        "Please enable location services",
+        AlertType.none,
+        () { Navigator.pop(context); },
+        false,
+        () {},
+        "OK"
+      );
+
+      return false;
+    }
+
+    PermissionStatus permission = await Permission.location.request();
+
+    if (permission.isDenied) {
+
+      mostrarAlerta(
+        context,
+        "Permission required",
+        "Location permission is required for tracking loads",
+        AlertType.none,
+        () { Navigator.pop(context); },
+        false,
+        () {},
+        "OK"
+      );
+
+      return false;
+    }
+
+    PermissionStatus backgroundPermission =
+        await Permission.locationAlways.request();
+
+    if (backgroundPermission.isDenied) {
+
+      mostrarAlerta(
+        context,
+        "Background location",
+        "Background location is required to track deliveries",
+        AlertType.none,
+        () { Navigator.pop(context); },
+        false,
+        () {},
+        "OK"
+      );
+
+      return false;
+    }
+
+    return true;
+  }
+
+  /// PERMISOS DE NOTIFICACIONES + TOKEN
+  Future<String?> requestNotificationPermissionsAndToken() async {
+
+    FirebaseMessaging messaging = FirebaseMessaging.instance;
+
+    NotificationSettings settings = await messaging.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+
+    if (settings.authorizationStatus == AuthorizationStatus.denied) {
+      print("Permiso de notificaciones denegado");
+      return null;
+    }
+
+    if (settings.authorizationStatus == AuthorizationStatus.authorized ||
+        settings.authorizationStatus == AuthorizationStatus.provisional) {
+
+      String? token = await messaging.getToken();
+
+      print("FCM TOKEN: $token");
+
+      return token;
+    }
+
+    return null;
+  }
+
+  /// LOGIN
   void loginUser() async {
-    AlertaLoading.show(context); 
-    if (emailController.text.isNotEmpty && passwordController.text.isNotEmpty) {
+
+    AlertaLoading.show(context);
+
+    /// 1️⃣ Pedir permisos de notificaciones
+    String? fcmToken = await requestNotificationPermissionsAndToken();
+
+    if (emailController.text.isNotEmpty &&
+        passwordController.text.isNotEmpty) {
+
       var reqBody = {
         "email": emailController.text,
         "password": passwordController.text,
+        "fcmToken": fcmToken
       };
 
       var response = await http.post(
@@ -49,24 +152,45 @@ class LoginPageState extends State<LoginPage> {
       );
 
       var jsonResponse = jsonDecode(response.body);
+
       print(jsonResponse);
 
       if (jsonResponse['status']) {
+
         setState(() {
           emailController.text = "";
           passwordController.text = "";
         });
 
         var myToken = jsonResponse['token'];
+
         prefs.setString('token', myToken);
+
         Map<String, dynamic> jwtDecodedToken = JwtDecoder.decode(myToken);
-        prefs.setString('correoUsuario', jwtDecodedToken['email'] );
-        if(jsonResponse['status'] == true){
-          AlertaLoading.hide(); 
-          Navigator.push(context,MaterialPageRoute(builder: (context) => LoadsPage(token: myToken)));
+
+        prefs.setString('correoUsuario', jwtDecodedToken['email']);
+
+        /// 2️⃣ pedir permisos de ubicación
+        bool permissionGranted = await requestLocationPermissions();
+
+        if (!permissionGranted) {
+          AlertaLoading.hide();
+          return;
         }
+
+        AlertaLoading.hide();
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => LoadsPage(token: myToken)
+          )
+        );
+
       } else {
-        AlertaLoading.hide(); 
+
+        AlertaLoading.hide();
+
         mostrarAlerta(
           context,
           "Error en el inicio de sesión",
@@ -74,11 +198,11 @@ class LoginPageState extends State<LoginPage> {
           AlertType.none,
           () {
             Navigator.of(context).pop();
-          }, 
-          false, 
+          },
+          false,
           () {
             Navigator.of(context).pop();
-          }, 
+          },
           'Accept'
         );
       }
@@ -88,20 +212,6 @@ class LoginPageState extends State<LoginPage> {
       isLoading = false;
     });
   }
-
-  // Future<void> solicitarPermisoNotificaciones() async {
-  //   NotificationSettings settings = await FirebaseMessaging.instance.requestPermission(
-  //     alert: true,
-  //     badge: true,
-  //     sound: true
-  //   );
-  //   if(settings.authorizationStatus == AuthorizationStatus.denied) {
-  //     print('Permiso de notificaciones denegado');
-  //   }
-  //   else if (settings.authorizationStatus == AuthorizationStatus.authorized || settings.authorizationStatus == AuthorizationStatus.provisional) {
-  //     print('Permiso de notificaciones concedido');
-  //   }
-  // }
 
   @override
   Widget build(BuildContext context) {
@@ -131,7 +241,6 @@ class LoginPageState extends State<LoginPage> {
 
                 const SizedBox(height: 50),
 
-                /// LOGO
                 Image.asset(
                   "assets/logo.png",
                   width: 140,
@@ -160,7 +269,6 @@ class LoginPageState extends State<LoginPage> {
 
                 const SizedBox(height: 40),
 
-                /// LOGIN CARD
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 24),
                   padding: const EdgeInsets.all(28),
@@ -192,7 +300,6 @@ class LoginPageState extends State<LoginPage> {
 
                       const SizedBox(height: 25),
 
-                      /// EMAIL
                       const Text(
                         "Email",
                         style: TextStyle(
@@ -221,7 +328,6 @@ class LoginPageState extends State<LoginPage> {
 
                       const SizedBox(height: 20),
 
-                      /// PASSWORD
                       const Text(
                         "Password",
                         style: TextStyle(
@@ -239,20 +345,31 @@ class LoginPageState extends State<LoginPage> {
                         ),
                         child: TextField(
                           controller: passwordController,
-                          obscureText: true,
-                          decoration: const InputDecoration(
+                          obscureText: _obscurePassword,
+                          decoration: InputDecoration(
                             border: InputBorder.none,
-                            prefixIcon: Icon(Icons.lock_outline),
-                            suffixIcon: Icon(Icons.visibility_off),
+                            prefixIcon: const Icon(Icons.lock_outline),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
+                              },
+                            ),
                             hintText: "Enter your password",
-                            contentPadding: EdgeInsets.symmetric(vertical: 16),
+                            contentPadding:
+                                const EdgeInsets.symmetric(vertical: 16),
                           ),
                         ),
                       ),
 
                       const SizedBox(height: 30),
 
-                      /// BUTTON
                       SizedBox(
                         width: double.infinity,
                         height: 52,
@@ -280,7 +397,6 @@ class LoginPageState extends State<LoginPage> {
                             }
 
                           },
-
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF2563EB),
                             shape: RoundedRectangleBorder(
@@ -288,7 +404,6 @@ class LoginPageState extends State<LoginPage> {
                             ),
                             elevation: 6,
                           ),
-
                           child: const Text(
                             "Continue",
                             style: TextStyle(
@@ -299,7 +414,6 @@ class LoginPageState extends State<LoginPage> {
                           ),
                         ),
                       ),
-
                     ],
                   ),
                 ),
