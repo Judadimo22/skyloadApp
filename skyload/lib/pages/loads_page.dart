@@ -31,6 +31,7 @@ class _LoadsPageState extends State<LoadsPage> {
     Map<String, dynamic> jwtDecodedToken = JwtDecoder.decode(widget.token);
     userId = jwtDecodedToken['_id'];
     getLoads(context);
+    startLocationTracking();
   }
 
   @override
@@ -49,6 +50,7 @@ class _LoadsPageState extends State<LoadsPage> {
       sendLocationToBackend(
         position.latitude,
         position.longitude,
+        position.speed, // en m/s
       );
     });
   }
@@ -72,13 +74,14 @@ class _LoadsPageState extends State<LoadsPage> {
     }
   }
 
-  Future<void> sendLocationToBackend(double lat, double lon) async {
+  Future<void> sendLocationToBackend(double lat, double lon, double speed) async {
     try {
       await put_(
         '/updateLocation/$userId',
         {
           "lat": lat,
-          "lon": lon
+          "lon": lon,
+          "speed": (speed < 0 ? 0 : speed) * 3.6
         },
       );
     } catch (e) {
@@ -110,6 +113,30 @@ class _LoadsPageState extends State<LoadsPage> {
       print('Error: $e');
     }
   }
+
+  void revertLoad(loadId) async {
+    AlertaLoading.show(context);
+    try {
+      await put(
+        context,
+        '/revertLoad/$loadId',
+        {},
+        'The load has been successfully reverted',
+        () async {
+          Navigator.pop(context);
+          await getLoads(context);
+        },
+        () {
+          Navigator.of(context).pop();
+        },
+      );
+      AlertaLoading.hide();
+    } catch (e) {
+      AlertaLoading.hide();
+      print('Error: $e');
+    }
+  }
+
   double getProgress(String state) {
     switch (state) {
       case "active": return 0.2;
@@ -130,6 +157,10 @@ class _LoadsPageState extends State<LoadsPage> {
       case "completed": return "Completed";
       default: return "";
     }
+  }
+
+  bool canRevert(String state) {
+    return state != "active" && state != "completed";
   }
 
   @override
@@ -280,12 +311,13 @@ class _LoadsPageState extends State<LoadsPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Header: empresa + rate
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Expanded(
                               child: Text(
-                                carga["companyNamePickUp"] ?? "",
+                                "",
                                 style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
@@ -293,10 +325,7 @@ class _LoadsPageState extends State<LoadsPage> {
                               ),
                             ),
                             Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 8,
-                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                               decoration: BoxDecoration(
                                 color: Colors.green,
                                 borderRadius: BorderRadius.circular(12),
@@ -310,11 +339,7 @@ class _LoadsPageState extends State<LoadsPage> {
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(
-                                    Icons.attach_money,
-                                    color: Colors.white,
-                                    size: 18,
-                                  ),
+                                  const Icon(Icons.attach_money, color: Colors.white, size: 18),
                                   Text(
                                     NumberFormat("#,###").format(carga["rate"]),
                                     style: const TextStyle(
@@ -328,93 +353,237 @@ class _LoadsPageState extends State<LoadsPage> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 12),
+
+                        const SizedBox(height: 14),
+                        const Divider(height: 1),
+                        const SizedBox(height: 14),
+
+                        // PICKUP
                         Row(
                           children: [
-                            const Icon(Icons.upload_rounded, size: 18),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                "${carga["cityPickUp"]} - ${carga["addressPickup"]}",
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
                               ),
-                            )
+                              child: const Icon(Icons.upload_rounded, size: 20, color: Colors.blue),
+                            ),
+                            const SizedBox(width: 10),
+                            const Text(
+                              "PICKUP",
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.location_on_outlined, size: 15, color: Colors.grey),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      "${carga["cityPickUp"]} — ${carga["addressPickup"]}  (${carga["companyNamePickUp"]})",
+                                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  const Icon(Icons.access_time, size: 15, color: Colors.grey),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    DateFormat("MMM dd, yyyy — HH:mm").format(
+                                      DateTime.parse(carga["datePickUp"]).toLocal()
+                                    ),
+                                    style: const TextStyle(fontSize: 13, color: Colors.grey),
+                                  ),
+                                ],
+                              ),
+                              if ((carga["notePickUp"] ?? "").toString().isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.withOpacity(0.06),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Icon(Icons.notes, size: 14, color: Colors.blue),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          carga["notePickUp"],
+                                          style: const TextStyle(fontSize: 13, color: Colors.black87),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 14),
+                        const Divider(height: 1, indent: 4, endIndent: 4),
+                        const SizedBox(height: 14),
+
+                        // DELIVERY
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(Icons.download_rounded, size: 20, color: Colors.orange),
+                            ),
+                            const SizedBox(width: 10),
+                            const Text(
+                              "DELIVERY",
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.location_on_outlined, size: 15, color: Colors.grey),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      "${carga["cityDelivery"]} — ${carga["addressDelivery"]} (${carga["companyDelivery"]})",
+                                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  const Icon(Icons.access_time, size: 15, color: Colors.grey),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    DateFormat("MMM dd, yyyy — HH:mm").format(
+                                      DateTime.parse(carga["dateDelivery"]).toLocal()
+                                    ),
+                                    style: const TextStyle(fontSize: 13, color: Colors.grey),
+                                  ),
+                                ],
+                              ),
+                              if ((carga["noteDelivery"] ?? "").toString().isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.withOpacity(0.06),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.orange.withOpacity(0.2)),
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Icon(Icons.notes, size: 14, color: Colors.orange),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          carga["noteDelivery"],
+                                          style: const TextStyle(fontSize: 13, color: Colors.black87),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 14),
+                        const Divider(height: 1),
+                        const SizedBox(height: 10),
+
+                        // Estado + progreso
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text("State", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                            Text(
+                              getStateLabel(carga["state"]),
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            const Icon(Icons.download_rounded, size: 18),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                "${carga["cityDelivery"]} - ${carga["addressDelivery"]}",
-                              ),
-                            )
-                          ],
+                        LinearProgressIndicator(
+                          value: getProgress(carga["state"]),
+                          minHeight: 6,
+                          backgroundColor: Colors.grey[300],
+                          valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
                         ),
+
                         const SizedBox(height: 10),
-                        Text(
-                          "Pickup: ${carga["datePickUp"]}",
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                        Text(
-                          "Delivery: ${carga["dateDelivery"]}",
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                        const SizedBox(height: 12),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  "State",
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey,
+
+                        // Botones
+                        if (carga["state"] != "completed")
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              if (canRevert(carga["state"]))
+                                OutlinedButton.icon(
+                                  onPressed: () => revertLoad(carga["_id"]),
+                                  icon: const Icon(Icons.arrow_back),
+                                  label: const Text("Revert"),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.orange,
+                                    side: const BorderSide(color: Colors.orange),
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                   ),
                                 ),
-                                Text(
-                                  getStateLabel(carga["state"]),
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.blue,
-                                  ),
-                                )
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            LinearProgressIndicator(
-                              value: getProgress(carga["state"]),
-                              minHeight: 6,
-                              backgroundColor: Colors.grey[300],
-                              valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        if (carga["state"] != "completed")
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              updateLoad(carga["_id"]);
-                            },
-                            icon: const Icon(Icons.refresh),
-                            label: const Text("Update"),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 18, vertical: 10
+                              const SizedBox(width: 8),
+                              ElevatedButton.icon(
+                                onPressed: () => updateLoad(carga["_id"]),
+                                icon: const Icon(Icons.refresh),
+                                label: const Text("Update"),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.blue,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
                               ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
+                            ],
                           ),
-                        ),
                       ],
                     ),
                   ),

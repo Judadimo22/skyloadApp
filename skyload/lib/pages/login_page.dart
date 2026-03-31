@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -24,6 +25,8 @@ class LoginPageState extends State<LoginPage> {
   TextEditingController passwordController = TextEditingController();
 
   late SharedPreferences prefs;
+
+  StreamSubscription<Position>? positionStream;
 
   bool _obscurePassword = true;
   bool isLoading = false;
@@ -170,12 +173,26 @@ class LoginPageState extends State<LoginPage> {
 
         prefs.setString('correoUsuario', jwtDecodedToken['email']);
 
-        /// 2️⃣ pedir permisos de ubicación
+        /// 2️⃣ Pedir permisos de ubicación
         bool permissionGranted = await requestLocationPermissions();
 
         if (!permissionGranted) {
           AlertaLoading.hide();
           return;
+        }
+
+        /// 3️⃣ Obtener ubicación actual y enviarla al backend
+        try {
+          Position position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high,
+          );
+          await sendLocationToBackend(
+            position.latitude,
+            position.longitude,
+            jwtDecodedToken['_id'],
+          );
+        } catch (e) {
+          print("Error obteniendo ubicación: $e");
         }
 
         AlertaLoading.hide();
@@ -188,13 +205,11 @@ class LoginPageState extends State<LoginPage> {
         );
 
       } else {
-
         AlertaLoading.hide();
-
         mostrarAlerta(
           context,
           "Error en el inicio de sesión",
-          "Por favor revisa el Email y la Password y vuelve a intentarlo.",
+          "Please check your email and password and try again",
           AlertType.none,
           () {
             Navigator.of(context).pop();
@@ -211,6 +226,20 @@ class LoginPageState extends State<LoginPage> {
     setState(() {
       isLoading = false;
     });
+  }
+
+  Future<void> sendLocationToBackend(double lat, double lon, String userId) async {
+    try {
+      await put_(
+        '/updateLocation/$userId',
+        {
+          "lat": lat,
+          "lon": lon
+        },
+      );
+    } catch (e) {
+      print("Error sending location: $e");
+    }
   }
 
   @override
@@ -238,16 +267,12 @@ class LoginPageState extends State<LoginPage> {
           child: SingleChildScrollView(
             child: Column(
               children: [
-
                 const SizedBox(height: 50),
-
                 Image.asset(
                   "assets/logo.png",
                   width: 140,
                 ),
-
                 const SizedBox(height: 20),
-
                 const Text(
                   "Welcome back",
                   style: TextStyle(
@@ -256,9 +281,7 @@ class LoginPageState extends State<LoginPage> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-
                 const SizedBox(height: 8),
-
                 const Text(
                   "Sign in to continue",
                   style: TextStyle(
