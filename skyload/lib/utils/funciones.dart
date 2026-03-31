@@ -143,7 +143,7 @@ void mostrarMensaje(BuildContext context, AlertType tipo, String mensaje,VoidCal
     }),
     buttons: [
       DialogButton(
-        color: colorTerciario,
+        color: Colors.blue,
         onPressed: accion ?? () => Navigator.pop(context),
         width: MediaQuery.of(context).size.height * 0.2,
         child: Text(
