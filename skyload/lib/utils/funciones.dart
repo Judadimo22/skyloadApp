@@ -79,6 +79,8 @@ http.Response manejarRespuestaHTTP(BuildContext context, http.Response response,
     throw false;
   }
 
+  AlertaLoading.show(context);
+
   var correcto = response.statusCode >= 200 && response.statusCode < 300;
 
   if (!correcto) {
@@ -91,12 +93,15 @@ http.Response manejarRespuestaHTTP(BuildContext context, http.Response response,
       }
     }
 
+    AlertaLoading.hide();
+
     mostrarMensaje(context, AlertType.none, mensaje!, accionErrorRespuesta);
 
     throw mensaje;
   }
 
   if (context.mounted && mensaje != null) {
+    AlertaLoading.hide();
     mostrarMensaje(context, AlertType.success, mensaje, accionBotonAlerta);
   }
 
@@ -115,26 +120,28 @@ void mostrarMensaje(BuildContext context, AlertType tipo, String mensaje,VoidCal
           //     margin: EdgeInsets.zero,
           //     child: Image.asset('assets/informacion.png'),
           //   ),
-          // if (tipo == AlertType.success)
-          //   Container(
-          //     margin: EdgeInsets.zero,
-          //     child: Image.asset('assets/successAlert.png'),
-          //   ),
-          // if (tipo == AlertType.none)
-          //   Container(
-          //     margin: EdgeInsets.zero,
-          //     child: Image.asset('assets/informacion.png'),
-          //   ),
+          if (tipo == AlertType.success)
+          Icon(
+            Icons.done,
+            size: MediaQuery.of(context).size.height * 0.07,
+            color: Colors.blue,
+          ),
+          if (tipo == AlertType.none)
+          Icon(
+            Icons.info,
+            size: MediaQuery.of(context).size.height * 0.07,
+            color: Colors.blue,
+          ),
           TextoManrope(
             text: mensaje,
             fontSize: MediaQuery.of(context).size.height * 0.023,
             margin: EdgeInsets.only(
               left: MediaQuery.of(context).size.height * 0.05,
               right: MediaQuery.of(context).size.height * 0.05,
-              top: MediaQuery.of(context).size.height * 0.03,
+              top: MediaQuery.of(context).size.height * 0.02,
             ),
             textColor: Colors.black,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
             alignment: Alignment.centerRight,
             textAlign: TextAlign.center,
           ),
@@ -149,7 +156,7 @@ void mostrarMensaje(BuildContext context, AlertType tipo, String mensaje,VoidCal
         child: Text(
           "Accept",
           style: GoogleFonts.manrope(
-            color: colorPrincipal,
+            color: Colors.white,
             fontSize: MediaQuery.of(context).size.width * 0.035,
             fontWeight: FontWeight.w600,
             height: 1.5,

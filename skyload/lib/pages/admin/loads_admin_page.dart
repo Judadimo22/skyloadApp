@@ -3,26 +3,27 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
-import 'package:skyload/pages/login_page.dart';
 import 'package:skyload/utils/funciones.dart';
 import 'package:intl/intl.dart';
 
-class LoadsPage extends StatefulWidget {
+class LoadsAdminPage extends StatefulWidget {
   final String token;
 
-  const LoadsPage({
+  const LoadsAdminPage({
     super.key,
     required this.token,
   });
 
   @override
-  State<LoadsPage> createState() => _LoadsPageState();
+  State<LoadsAdminPage> createState() => _LoadsPageState();
 }
 
-class _LoadsPageState extends State<LoadsPage> {
+class _LoadsPageState extends State<LoadsAdminPage> {
   String filtroSeleccionado = "active";
   List<dynamic> loadList = [];
   late String userId;
+  String searchText = "";
+  TextEditingController searchController = TextEditingController();
 
   StreamSubscription<Position>? positionStream;
 
@@ -32,55 +33,26 @@ class _LoadsPageState extends State<LoadsPage> {
     Map<String, dynamic> jwtDecodedToken = JwtDecoder.decode(widget.token);
     userId = jwtDecodedToken['_id'];
     getLoads(context);
-    startLocationTracking();
   }
 
   @override
   void dispose() {
-    stopLocationTracking();
     super.dispose();
   }
 
-  void startLocationTracking() {
-    if (positionStream != null) return;
-    const LocationSettings locationSettings = LocationSettings(
-      accuracy: LocationAccuracy.high,
-      distanceFilter: 10,
-    );
-    positionStream = Geolocator.getPositionStream(locationSettings: locationSettings).listen((Position position) {
-      sendLocationToBackend(
-        position.latitude,
-        position.longitude,
-        position.speed, // en m/s
-      );
-    });
-  }
+
 
   Future<void> getLoads(BuildContext context) async {
     try {
-      final response = await get_('/loads/$userId');
+      final response = await get_('/loads');
       List<dynamic> loads = json.decode(response.body);
       setState(() {
         loadList = loads;
       });
-      startLocationTracking();
+
+
     } catch (error) {
       print('Error: $error');
-    }
-  }
-
-  Future<void> sendLocationToBackend(double lat, double lon, double speed) async {
-    try {
-      await put_(
-        '/updateLocation/$userId',
-        {
-          "lat": lat,
-          "lon": lon,
-          "speed": (speed < 0 ? 0 : speed) * 3.6
-        },
-      );
-    } catch (e) {
-      print("Error sending location: $e");
     }
   }
 
@@ -132,6 +104,52 @@ class _LoadsPageState extends State<LoadsPage> {
     }
   }
 
+  void cancelLoad(loadId) async {
+    AlertaLoading.show(context);
+    try {
+      await put(
+        context,
+        '/cancelLoad/$loadId',
+        {},
+        'The load has been successfully cancelled',
+        () async {
+          Navigator.pop(context);
+          await getLoads(context);
+        },
+        () {
+          Navigator.of(context).pop();
+        },
+      );
+      AlertaLoading.hide();
+    } catch (e) {
+      AlertaLoading.hide();
+      print('Error: $e');
+    }
+  }
+
+  void deleteLoad(loadId) async {
+    AlertaLoading.show(context);
+    try {
+      await put(
+        context,
+        '/deleteLoad/$loadId',
+        {},
+        'The load has been successfully deleted',
+        () async {
+          Navigator.pop(context);
+          await getLoads(context);
+        },
+        () {
+          Navigator.of(context).pop();
+        },
+      );
+      AlertaLoading.hide();
+    } catch (e) {
+      AlertaLoading.hide();
+      print('Error: $e');
+    }
+  }
+
   double getProgress(String state) {
     switch (state) {
       case "active": return 0.2;
@@ -150,6 +168,7 @@ class _LoadsPageState extends State<LoadsPage> {
       case "on_the_way": return "On the way";
       case "delivered": return "Delivered";
       case "completed": return "Completed";
+      case "cancelled" : return "Cancelled";
       default: return "";
     }
   }
@@ -158,127 +177,107 @@ class _LoadsPageState extends State<LoadsPage> {
     return state != "active" && state != "completed";
   }
 
-  void _logout() {
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => LoginPage()),
-      (route) => false,
-    );
-  }
+  List<String> estados = [
+    "all",
+    "active",
+    "picked_up",
+    "on_the_way",
+    "delivered",
+    "completed",
+    "cancelled"
+  ];
 
   @override
   Widget build(BuildContext context) {
     // ignore: non_constant_identifier_names
     final LoadsFiltradas = loadList.where((c) {
-      if (filtroSeleccionado == "active") {
-        return c["state"] != "completed";
-      } else {
-        return c["state"] == "completed";
-      }
+      final stateMatch = filtroSeleccionado == "all"
+          ? true
+          : c["state"] == filtroSeleccionado;
+
+      final unitNumber = (c["user"]?["unitNumber"] ?? "")
+          .toString()
+          .toLowerCase();
+
+      final searchMatch = unitNumber.contains(searchText);
+
+      return stateMatch && searchMatch;
     }).toList();
     return Scaffold(
       backgroundColor: Colors.grey[100],
       body: SafeArea(
         child: Column(
           children: [
-            Padding(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    GestureDetector(
-                      onTap: _logout,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          children: const [
-                            Icon(Icons.logout, color: Colors.red, size: 18),
-                            SizedBox(width: 6),
-                            Text(
-                              "Logout",
-                              style: TextStyle(
-                                color: Colors.red,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            )
-                          ],
-                        ),
-                      ),
-                    ),
-                    const Text(
-                      "Loads",
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  )
+                ],
+              ),
+              child: TextField(
+                controller: searchController,
+                onChanged: (value) {
+                  setState(() {
+                    searchText = value.toLowerCase();
+                  });
+                },
+                decoration: const InputDecoration(
+                  icon: Icon(Icons.search),
+                  hintText: "Search by unit number...",
+                  border: InputBorder.none,
                 ),
               ),
+            ),
             Container(
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.all(5),
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(30),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          filtroSeleccionado = "active";
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(
-                          color: filtroSeleccionado == "active"  ? Colors.blue : Colors.transparent,
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        child: Center(
-                          child: Text(
-                            "Active",
-                            style: TextStyle(
-                              color: filtroSeleccionado == "active" ? Colors.white : Colors.black,
-                              fontWeight: FontWeight.bold,
-                            ),
+              height: 50,
+              margin: const EdgeInsets.symmetric(vertical: 10),
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: estados.length,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemBuilder: (context, index) {
+                  final estado = estados[index];
+                  final isSelected = filtroSeleccionado == estado;
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        filtroSeleccionado = estado;
+                      });
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.only(right: 10),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color:
+                            isSelected ? Colors.blue : Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.blue),
+                      ),
+                      child: Center(
+                        child: Text(
+                          estado == "all"
+                              ? "All"
+                              : getStateLabel(estado),
+                          style: TextStyle(
+                            color: isSelected
+                                ? Colors.white
+                                : Colors.blue,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
                     ),
-                  ),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          filtroSeleccionado = "Completed";
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(
-                          color: filtroSeleccionado == "Completed" ? Colors.blue : Colors.transparent,
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        child: Center(
-                          child: Text(
-                            "Completed",
-                            style: TextStyle(
-                              color: filtroSeleccionado == "Completed" ? Colors.white : Colors.black,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                  );
+                },
               ),
             ),
             Expanded(
@@ -304,9 +303,9 @@ class _LoadsPageState extends State<LoadsPage> {
                             children: [
                               Expanded(
                                 child: Text(
-                                  "",
+                                  "${carga['user']['name']} ${carga['user']['lastName']} (${carga['user']['unitNumber'] ?? ''})",
                                   style: const TextStyle(
-                                    fontSize: 18,
+                                    fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -491,10 +490,11 @@ class _LoadsPageState extends State<LoadsPage> {
                           const SizedBox(height: 10),
         
                           // Botones
-                          if (carga["state"] != "completed")
+                          if (carga["state"] != "cancelled")
                             Row(
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
+                                if(carga['state'] != 'completed')
                                 if (canRevert(carga["state"]))
                                   OutlinedButton.icon(
                                     onPressed: () => revertLoad(carga["_id"]),
@@ -514,6 +514,35 @@ class _LoadsPageState extends State<LoadsPage> {
                                   label: const Text("Update"),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.blue,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              children: [
+                                if(carga['state'] != 'cancelled')
+                                  OutlinedButton.icon(
+                                    onPressed: () => cancelLoad(carga["_id"]),
+                                    icon: const Icon(Icons.cancel),
+                                    label: const Text("Cancel"),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.red,
+                                      side: const BorderSide(color: Colors.red),
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    ),
+                                  ),
+                                const SizedBox(width: 8),
+                                ElevatedButton.icon(
+                                  onPressed: () => deleteLoad(carga["_id"]),
+                                  icon: const Icon(Icons.delete),
+                                  label: const Text("Delete"),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red,
                                     foregroundColor: Colors.white,
                                     padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
