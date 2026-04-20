@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:skyload/pages/admin/admins_page.dart';
 import 'package:skyload/pages/admin/loads_admin_page.dart';
+import 'package:skyload/pages/admin/map_page.dart';
 import 'package:skyload/pages/admin/users_page.dart';
 import 'package:skyload/pages/loads_page.dart';
 import 'package:skyload/pages/login_page.dart';
@@ -26,12 +27,14 @@ class _HomePageAdminState extends State<HomePageAdmin> {
   final List<String> menuItems = [
     "Users",
     "Loads",
+    "Map",
   ];
 
   final List<String> menuItemsSuperAdmin = [
     "Users",
     "Admins",
     "Loads",
+    "Map",
   ];
 
   @override
@@ -168,6 +171,7 @@ class _HomePageAdminState extends State<HomePageAdmin> {
     switch (selectedIndex) {
       case 0: return UsersPage(token: widget.token);
       case 1: return LoadsAdminPage(token: widget.token);
+      case 2: return const MapPage();
       default: return UsersPage(token: widget.token);
     }
   }
@@ -177,6 +181,7 @@ class _HomePageAdminState extends State<HomePageAdmin> {
       case 0: return UsersPage(token: widget.token);
       case 1: return AdminsPage(token: widget.token);
       case 2: return LoadsAdminPage(token: widget.token);
+      case 3: return const MapPage();
       default: return UsersPage(token: widget.token);
     }
   }

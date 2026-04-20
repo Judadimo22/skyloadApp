@@ -50,7 +50,7 @@ class MyApp extends StatefulWidget {
     this.nombreUsuario,
     this.correoUsuario,
     super.key,
-  });
+  });  
 
   @override
   State<MyApp> createState() => _MyAppState();

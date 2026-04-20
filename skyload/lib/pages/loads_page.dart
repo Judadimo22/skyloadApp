@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
@@ -25,6 +26,8 @@ class _LoadsPageState extends State<LoadsPage> {
   late String userId;
 
   StreamSubscription<Position>? positionStream;
+  Timer? _locationTimer;
+  Position? _lastPosition;
 
   @override
   void initState() {
@@ -43,16 +46,52 @@ class _LoadsPageState extends State<LoadsPage> {
 
   void startLocationTracking() {
     if (positionStream != null) return;
-    const LocationSettings locationSettings = LocationSettings(
-      accuracy: LocationAccuracy.high,
-      distanceFilter: 10,
-    );
-    positionStream = Geolocator.getPositionStream(locationSettings: locationSettings).listen((Position position) {
-      sendLocationToBackend(
-        position.latitude,
-        position.longitude,
-        position.speed, // en m/s
-      );
+
+    final LocationSettings locationSettings = Platform.isIOS
+        ? AppleSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 0,
+            activityType: ActivityType.automotiveNavigation,
+            pauseLocationUpdatesAutomatically: false,
+            allowBackgroundLocationUpdates: true,
+            showBackgroundLocationIndicator: true,
+          )
+        : AndroidSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 0,
+            intervalDuration: const Duration(seconds: 10),
+          );
+
+    positionStream = Geolocator.getPositionStream(locationSettings: locationSettings)
+        .listen(
+          (Position position) {
+            _lastPosition = position;
+            sendLocationToBackend(position.latitude, position.longitude, position.speed);
+          },
+          onError: (_) {
+            // Stream error — restart after a short delay
+            positionStream?.cancel();
+            positionStream = null;
+            Future.delayed(const Duration(seconds: 5), startLocationTracking);
+          },
+        );
+
+    // Fallback timer: send last known position every 20 s even without movement
+    _locationTimer ??= Timer.periodic(const Duration(seconds: 20), (_) async {
+      if (_lastPosition != null) {
+        sendLocationToBackend(
+          _lastPosition!.latitude,
+          _lastPosition!.longitude,
+          _lastPosition!.speed,
+        );
+      } else {
+        try {
+          final pos = await Geolocator.getLastKnownPosition();
+          if (pos != null) {
+            sendLocationToBackend(pos.latitude, pos.longitude, pos.speed);
+          }
+        } catch (_) {}
+      }
     });
   }
 
@@ -537,5 +576,7 @@ class _LoadsPageState extends State<LoadsPage> {
   void stopLocationTracking() {
     positionStream?.cancel();
     positionStream = null;
+    _locationTimer?.cancel();
+    _locationTimer = null;
   }
 }

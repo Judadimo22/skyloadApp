@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:skyload/pages/admin/home_page_admin.dart';
@@ -9,7 +10,6 @@ import 'package:http/http.dart' as http;
 import 'package:rflutter_alert/rflutter_alert.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 class LoginPage extends StatefulWidget {
@@ -45,53 +45,51 @@ class LoginPageState extends State<LoginPage> {
 
   /// PERMISOS DE UBICACIÓN
   Future<bool> requestLocationPermissions() async {
-
+    // 1. Verify location service is enabled
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-
     if (!serviceEnabled) {
-      mostrarAlerta(
-        context,
-        "Location disabled",
-        "Please enable location services",
-        AlertType.none,
-        () { Navigator.pop(context); },
-        false,
-        () {},
-        "OK"
-      );
+      if (mounted) {
+        mostrarAlerta(
+          context,
+          "Location disabled",
+          "Please enable location services on your device.",
+          AlertType.none,
+          () { Navigator.pop(context); },
+          false,
+          () {},
+          "OK",
+        );
+      }
       return false;
     }
 
-    PermissionStatus permission = await Permission.location.request();
+    // 2. Request "when in use" permission via Geolocator (works on iOS + Android)
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
 
-    if (permission.isDenied) {
-      mostrarAlerta(
-        context,
-        "Permission required",
-        "Location permission is required for tracking loads",
-        AlertType.none,
-        () { Navigator.pop(context); },
-        false,
-        () {},
-        "OK"
-      );
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      if (mounted) {
+        mostrarAlerta(
+          context,
+          "Permission required",
+          "Location permission is required for tracking loads.",
+          AlertType.none,
+          () { Navigator.pop(context); },
+          false,
+          () {},
+          "OK",
+        );
+      }
       return false;
     }
 
-    PermissionStatus backgroundPermission = await Permission.locationAlways.request();
-
-    if (backgroundPermission.isDenied) {
-      mostrarAlerta(
-        context,
-        "Background location",
-        "Background location is required to track deliveries",
-        AlertType.none,
-        () { Navigator.pop(context); },
-        false,
-        () {},
-        "OK"
-      );
-      return false;
+    // 3. Request "always" only on Android — on iOS the user must do this from Settings
+    if (Platform.isAndroid &&
+        permission != LocationPermission.always) {
+      await Geolocator.requestPermission();
     }
 
     return true;

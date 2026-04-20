@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:skyload/utils/funciones.dart';
 import 'package:intl/intl.dart';
 
@@ -550,6 +552,7 @@ class _LoadsPageState extends State<LoadsAdminPage> {
                                 ),
                               ],
                             ),
+                    _buildMiniMap(carga['user']),
                         ],
                       ),
                     ),
@@ -566,5 +569,164 @@ class _LoadsPageState extends State<LoadsAdminPage> {
   void stopLocationTracking() {
     positionStream?.cancel();
     positionStream = null;
+  }
+
+  double _parseCoord(dynamic value) => double.parse(value.toString());
+
+  Widget _buildMiniMap(dynamic user) {
+    final lat = user['lat'];
+    final lon = user['lon'];
+    if (lat == null || lon == null) return const SizedBox.shrink();
+    return _MiniMapWidget(user: user);
+  }
+}
+
+// ── Standalone minimap widget with its own MapController ──────────────────────
+class _MiniMapWidget extends StatefulWidget {
+  final dynamic user;
+  const _MiniMapWidget({required this.user});
+
+  @override
+  State<_MiniMapWidget> createState() => _MiniMapWidgetState();
+}
+
+class _MiniMapWidgetState extends State<_MiniMapWidget> {
+  final MapController _ctrl = MapController();
+
+  double _parseCoord(dynamic v) => double.parse(v.toString());
+
+  void _zoom(double delta) {
+    _ctrl.move(
+      _ctrl.camera.center,
+      (_ctrl.camera.zoom + delta).clamp(2.0, 19.0),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final point = LatLng(
+      _parseCoord(widget.user['lat']),
+      _parseCoord(widget.user['lon']),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 14),
+        const Divider(height: 1),
+        const SizedBox(height: 12),
+        Row(
+          children: const [
+            Icon(Icons.my_location, size: 15, color: Colors.blue),
+            SizedBox(width: 6),
+            Text(
+              "DRIVER LOCATION",
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Colors.blue,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: SizedBox(
+            height: 200,
+            child: Stack(
+              children: [
+                FlutterMap(
+                  mapController: _ctrl,
+                  options: MapOptions(
+                    initialCenter: point,
+                    initialZoom: 13,
+                    interactionOptions: const InteractionOptions(
+                      flags: InteractiveFlag.pinchZoom |
+                          InteractiveFlag.drag |
+                          InteractiveFlag.doubleTapZoom,
+                    ),
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate:
+                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.skyload.app',
+                    ),
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: point,
+                          width: 44,
+                          height: 52,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircleAvatar(
+                                radius: 16,
+                                backgroundColor: Colors.blue,
+                                child: Text(
+                                  widget.user['name'][0].toUpperCase(),
+                                  style: const TextStyle(
+                                      color: Colors.white, fontSize: 13),
+                                ),
+                              ),
+                              const Icon(Icons.arrow_drop_down,
+                                  color: Colors.blue, size: 18),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+
+                // Zoom buttons
+                Positioned(
+                  right: 8,
+                  bottom: 8,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.12),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        )
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _zoomBtn(Icons.add, () => _zoom(1)),
+                        Container(
+                            height: 1,
+                            width: 28,
+                            color: Colors.grey[200]),
+                        _zoomBtn(Icons.remove, () => _zoom(-1)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _zoomBtn(IconData icon, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: SizedBox(
+        width: 36,
+        height: 36,
+        child: Icon(icon, size: 18, color: Colors.blue),
+      ),
+    );
   }
 }
