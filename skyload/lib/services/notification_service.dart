@@ -2,15 +2,30 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class NotificationService {
 
-  static final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+  static final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
 
-  static Future init() async {
-    const AndroidInitializationSettings android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const InitializationSettings settings = InitializationSettings(android: android);
+  static Future<void> init() async {
+
+    const AndroidInitializationSettings androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+
+    const DarwinInitializationSettings iosSettings = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+
+    const InitializationSettings settings = InitializationSettings(
+      android: androidSettings,
+      iOS: iosSettings,
+    );
+
     await flutterLocalNotificationsPlugin.initialize(settings);
   }
 
-  static Future showNotification(String title, String body) async {
+  static Future<void> showNotification(String title, String body) async {
+
     const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
       'loads_channel',
       'Loads Notifications',
@@ -18,8 +33,18 @@ class NotificationService {
       priority: Priority.high,
     );
 
-    const NotificationDetails notificationDetails = NotificationDetails(android: androidDetails);
+    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails();
 
-    await flutterLocalNotificationsPlugin.show(0,title, body, notificationDetails,);
+    const NotificationDetails notificationDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await flutterLocalNotificationsPlugin.show(
+      0,
+      title,
+      body,
+      notificationDetails,
+    );
   }
 }
