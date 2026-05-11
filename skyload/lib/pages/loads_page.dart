@@ -28,6 +28,7 @@ class _LoadsPageState extends State<LoadsPage> {
   StreamSubscription<Position>? positionStream;
   Timer? _locationTimer;
   Position? _lastPosition;
+  Timer? _statusPollTimer;
 
   @override
   void initState() {
@@ -36,10 +37,12 @@ class _LoadsPageState extends State<LoadsPage> {
     userId = jwtDecodedToken['_id'];
     getLoads(context);
     startLocationTracking();
+    _statusPollTimer = Timer.periodic(const Duration(seconds: 10), (_) => _pollLoads());
   }
 
   @override
   void dispose() {
+    _statusPollTimer?.cancel();
     stopLocationTracking();
     super.dispose();
   }
@@ -108,6 +111,20 @@ class _LoadsPageState extends State<LoadsPage> {
     }
   }
 
+  Future<void> _pollLoads() async {
+    if (!mounted) return;
+    try {
+      final response = await get_('/loads/$userId');
+      if (!mounted) return;
+      final List<dynamic> loads = json.decode(response.body);
+      if (loads.toString() != loadList.toString()) {
+        setState(() {
+          loadList = loads;
+        });
+      }
+    } catch (_) {}
+  }
+
   Future<void> sendLocationToBackend(double lat, double lon, double speed) async {
     try {
       await put_(
@@ -115,7 +132,7 @@ class _LoadsPageState extends State<LoadsPage> {
         {
           "lat": lat,
           "lon": lon,
-          "speed": (speed < 0 ? 0 : speed) * 3.6
+          "speed": (speed < 0 ? 0 : speed) * 2.23694
         },
       );
     } catch (e) {
@@ -321,7 +338,9 @@ class _LoadsPageState extends State<LoadsPage> {
               ),
             ),
             Expanded(
-              child: ListView.builder(
+              child: RefreshIndicator(
+                onRefresh: () => _pollLoads(),
+                child: ListView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 itemCount: LoadsFiltradas.length,
                 itemBuilder: (context, index) {
@@ -526,45 +545,13 @@ class _LoadsPageState extends State<LoadsPage> {
                             backgroundColor: Colors.grey[300],
                             valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
                           ),
-        
                           const SizedBox(height: 10),
-        
-                          // Botones
-                          if (carga["state"] != "completed")
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                if (canRevert(carga["state"]))
-                                  OutlinedButton.icon(
-                                    onPressed: () => revertLoad(carga["_id"]),
-                                    icon: const Icon(Icons.arrow_back),
-                                    label: const Text("Revert"),
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: Colors.orange,
-                                      side: const BorderSide(color: Colors.orange),
-                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                    ),
-                                  ),
-                                const SizedBox(width: 8),
-                                ElevatedButton.icon(
-                                  onPressed: () => updateLoad(carga["_id"]),
-                                  icon: const Icon(Icons.refresh),
-                                  label: const Text("Update"),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.blue,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                  ),
-                                ),
-                              ],
-                            ),
                         ],
                       ),
                     ),
                   );
                 },
+              ),
               ),
             )
           ],
