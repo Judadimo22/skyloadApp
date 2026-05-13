@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:skyload/pages/login_page.dart';
+import 'package:rflutter_alert/rflutter_alert.dart';
 import 'package:skyload/utils/funciones.dart';
 import 'package:intl/intl.dart';
 
@@ -231,7 +232,12 @@ class _LoadsPageState extends State<LoadsPage> {
         return c["state"] == "completed";
       }
     }).toList();
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _showExitConfirmation();
+      },
+      child: Scaffold(
       backgroundColor: Colors.grey[100],
       body: SafeArea(
         child: Column(
@@ -557,13 +563,32 @@ class _LoadsPageState extends State<LoadsPage> {
           ],
         ),
       ),
+      ),
     );
   }
-  
+
   void stopLocationTracking() {
     positionStream?.cancel();
     positionStream = null;
     _locationTimer?.cancel();
     _locationTimer = null;
+  }
+
+  void _showExitConfirmation() {
+    mostrarAlerta(
+      context,
+      '',
+      'Are you sure you want to exit the application?',
+      AlertType.none,
+      () {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => LoginPage()),
+          (route) => false,
+        );
+      },
+      true,
+      () => Navigator.pop(context),
+      'Accept',
+    );
   }
 }

@@ -45,6 +45,8 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Use Face ID to sign in to your account.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Skyload needs your location to track deliveries in real time.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>

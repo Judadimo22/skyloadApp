@@ -1,10 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:skyload/utils/funciones.dart';
 import 'package:intl/intl.dart';
 
@@ -571,8 +570,6 @@ class _LoadsPageState extends State<LoadsAdminPage> {
     positionStream = null;
   }
 
-  double _parseCoord(dynamic value) => double.parse(value.toString());
-
   Widget _buildMiniMap(dynamic user) {
     final lat = user['lat'];
     final lon = user['lon'];
@@ -581,7 +578,7 @@ class _LoadsPageState extends State<LoadsAdminPage> {
   }
 }
 
-// ── Standalone minimap widget with its own MapController ──────────────────────
+// ── Standalone minimap widget with its own GoogleMapController ────────────────
 class _MiniMapWidget extends StatefulWidget {
   final dynamic user;
   const _MiniMapWidget({required this.user});
@@ -591,15 +588,14 @@ class _MiniMapWidget extends StatefulWidget {
 }
 
 class _MiniMapWidgetState extends State<_MiniMapWidget> {
-  final MapController _ctrl = MapController();
+  GoogleMapController? _ctrl;
 
   double _parseCoord(dynamic v) => double.parse(v.toString());
 
-  void _zoom(double delta) {
-    _ctrl.move(
-      _ctrl.camera.center,
-      (_ctrl.camera.zoom + delta).clamp(2.0, 19.0),
-    );
+  @override
+  void dispose() {
+    _ctrl?.dispose();
+    super.dispose();
   }
 
   @override
@@ -615,8 +611,8 @@ class _MiniMapWidgetState extends State<_MiniMapWidget> {
         const SizedBox(height: 14),
         const Divider(height: 1),
         const SizedBox(height: 12),
-        Row(
-          children: const [
+        const Row(
+          children: [
             Icon(Icons.my_location, size: 15, color: Colors.blue),
             SizedBox(width: 6),
             Text(
@@ -637,49 +633,23 @@ class _MiniMapWidgetState extends State<_MiniMapWidget> {
             height: 200,
             child: Stack(
               children: [
-                FlutterMap(
-                  mapController: _ctrl,
-                  options: MapOptions(
-                    initialCenter: point,
-                    initialZoom: 13,
-                    interactionOptions: const InteractionOptions(
-                      flags: InteractiveFlag.pinchZoom |
-                          InteractiveFlag.drag |
-                          InteractiveFlag.doubleTapZoom,
-                    ),
+                GoogleMap(
+                  initialCameraPosition: CameraPosition(
+                    target: point,
+                    zoom: 13,
                   ),
-                  children: [
-                    TileLayer(
-                      urlTemplate:
-                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.skyload.app',
+                  onMapCreated: (controller) => _ctrl = controller,
+                  markers: {
+                    Marker(
+                      markerId: MarkerId(widget.user['_id'].toString()),
+                      position: point,
+                      icon: BitmapDescriptor.defaultMarkerWithHue(
+                          BitmapDescriptor.hueBlue),
                     ),
-                    MarkerLayer(
-                      markers: [
-                        Marker(
-                          point: point,
-                          width: 44,
-                          height: 52,
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              CircleAvatar(
-                                radius: 16,
-                                backgroundColor: Colors.blue,
-                                child: Text(
-                                  widget.user['name'][0].toUpperCase(),
-                                  style: const TextStyle(
-                                      color: Colors.white, fontSize: 13),
-                                ),
-                              ),
-                              const Icon(Icons.arrow_drop_down,
-                                  color: Colors.blue, size: 18),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                  },
+                  myLocationButtonEnabled: false,
+                  zoomControlsEnabled: false,
+                  compassEnabled: false,
                 ),
 
                 // Zoom buttons
@@ -701,12 +671,11 @@ class _MiniMapWidgetState extends State<_MiniMapWidget> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _zoomBtn(Icons.add, () => _zoom(1)),
-                        Container(
-                            height: 1,
-                            width: 28,
-                            color: Colors.grey[200]),
-                        _zoomBtn(Icons.remove, () => _zoom(-1)),
+                        _zoomBtn(Icons.add,
+                            () => _ctrl?.animateCamera(CameraUpdate.zoomBy(1))),
+                        Container(height: 1, width: 28, color: Colors.grey[200]),
+                        _zoomBtn(Icons.remove,
+                            () => _ctrl?.animateCamera(CameraUpdate.zoomBy(-1))),
                       ],
                     ),
                   ),

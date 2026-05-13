@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
+import 'package:rflutter_alert/rflutter_alert.dart';
 import 'package:skyload/pages/admin/admins_page.dart';
 import 'package:skyload/pages/admin/loads_admin_page.dart';
 import 'package:skyload/pages/admin/map_page.dart';
 import 'package:skyload/pages/admin/users_page.dart';
-import 'package:skyload/pages/loads_page.dart';
 import 'package:skyload/pages/login_page.dart';
+import 'package:skyload/utils/funciones.dart';
 
 class HomePageAdmin extends StatefulWidget {
   final String token;
@@ -52,11 +53,34 @@ class _HomePageAdminState extends State<HomePageAdmin> {
     );
   }
 
+  void _showExitConfirmation() {
+    mostrarAlerta(
+      context,
+      '',
+      'Are you sure you want to exit the application?',
+      AlertType.none,
+      () {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => LoginPage()),
+          (route) => false,
+        );
+      },
+      true,
+      () => Navigator.pop(context),
+      'Accept',
+    );
+  }
+
   
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _showExitConfirmation();
+      },
+      child: Scaffold(
       backgroundColor: const Color(0xffF5F7FB),
       body: SafeArea(
         child: Column(
@@ -162,6 +186,7 @@ class _HomePageAdminState extends State<HomePageAdmin> {
             )
           ],
         ),
+      ),
       ),
     );
   }

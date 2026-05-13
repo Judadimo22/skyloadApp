@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:skyload/utils/funciones.dart';
 
 class MapPage extends StatefulWidget {
@@ -14,13 +13,21 @@ class MapPage extends StatefulWidget {
 class _MapPageState extends State<MapPage> {
   List<dynamic> usersList = [];
   bool isLoading = true;
-  bool _mapReady = false;
-  final MapController _mapController = MapController();
+  GoogleMapController? _mapController;
+  String _searchText = '';
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _loadUsers();
+  }
+
+  @override
+  void dispose() {
+    _mapController?.dispose();
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadUsers() async {
@@ -32,7 +39,7 @@ class _MapPageState extends State<MapPage> {
         usersList = users;
         isLoading = false;
       });
-      if (_mapReady) _fitAll();
+      _fitAll();
     } catch (_) {
       setState(() => isLoading = false);
     }
@@ -43,38 +50,64 @@ class _MapPageState extends State<MapPage> {
   List<dynamic> get _usersWithLocation =>
       usersList.where((u) => u['lat'] != null && u['lon'] != null).toList();
 
+  List<dynamic> get _filteredUsers {
+    if (_searchText.isEmpty) return _usersWithLocation;
+    final query = _searchText.toLowerCase();
+    return _usersWithLocation
+        .where((u) =>
+            (u['unitNumber'] ?? '').toString().toLowerCase().contains(query))
+        .toList();
+  }
+
   void _fitAll() {
-    final located = _usersWithLocation;
-    if (located.isEmpty) return;
+    final located = _filteredUsers;
+    if (located.isEmpty || _mapController == null) return;
     if (located.length == 1) {
-      _mapController.move(
+      _mapController!.animateCamera(CameraUpdate.newLatLngZoom(
         LatLng(_parseCoord(located[0]['lat']), _parseCoord(located[0]['lon'])),
         13,
-      );
+      ));
       return;
     }
-    _mapController.fitCamera(
-      CameraFit.coordinates(
-        coordinates: located
-            .map((u) => LatLng(_parseCoord(u['lat']), _parseCoord(u['lon'])))
-            .toList(),
-        padding: const EdgeInsets.fromLTRB(48, 80, 48, 140),
+    double minLat = double.infinity, maxLat = -double.infinity;
+    double minLon = double.infinity, maxLon = -double.infinity;
+    for (final u in located) {
+      final lat = _parseCoord(u['lat']);
+      final lon = _parseCoord(u['lon']);
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+      if (lon < minLon) minLon = lon;
+      if (lon > maxLon) maxLon = lon;
+    }
+    _mapController!.animateCamera(CameraUpdate.newLatLngBounds(
+      LatLngBounds(
+        southwest: LatLng(minLat, minLon),
+        northeast: LatLng(maxLat, maxLon),
       ),
-    );
+      80,
+    ));
   }
 
   void _centerOnUser(dynamic user) {
-    _mapController.move(
+    _mapController?.animateCamera(CameraUpdate.newLatLngZoom(
       LatLng(_parseCoord(user['lat']), _parseCoord(user['lon'])),
       14,
-    );
+    ));
   }
 
   void _zoom(double delta) {
-    _mapController.move(
-      _mapController.camera.center,
-      (_mapController.camera.zoom + delta).clamp(2.0, 19.0),
-    );
+    _mapController?.animateCamera(CameraUpdate.zoomBy(delta));
+  }
+
+  Set<Marker> get _markers {
+    return _filteredUsers.map((user) {
+      return Marker(
+        markerId: MarkerId(user['_id'].toString()),
+        position: LatLng(_parseCoord(user['lat']), _parseCoord(user['lon'])),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+        onTap: () => _showUserInfo(user),
+      );
+    }).toSet();
   }
 
   void _showUserInfo(dynamic user) {
@@ -167,59 +200,73 @@ class _MapPageState extends State<MapPage> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final located = _usersWithLocation;
-    final LatLng initialCenter = located.isNotEmpty
-        ? LatLng(_parseCoord(located[0]['lat']), _parseCoord(located[0]['lon']))
+    final located = _filteredUsers;
+    final all = _usersWithLocation;
+    final LatLng initialCenter = all.isNotEmpty
+        ? LatLng(_parseCoord(all[0]['lat']), _parseCoord(all[0]['lon']))
         : const LatLng(4.7110, -74.0721);
 
     return Stack(
       children: [
         // ── MAP ──────────────────────────────────────────────
-        FlutterMap(
-          mapController: _mapController,
-          options: MapOptions(
-            initialCenter: initialCenter,
-            initialZoom: 10,
-            onMapReady: () {
-              _mapReady = true;
-              _fitAll();
-            },
+        GoogleMap(
+          initialCameraPosition: CameraPosition(
+            target: initialCenter,
+            zoom: 10,
           ),
-          children: [
-            TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.skyload.app',
+          onMapCreated: (controller) {
+            _mapController = controller;
+            _fitAll();
+          },
+          markers: _markers,
+          myLocationButtonEnabled: false,
+          zoomControlsEnabled: false,
+          compassEnabled: false,
+        ),
+
+        // ── SEARCH BAR ───────────────────────────────────────
+        Positioned(
+          top: 16,
+          left: 14,
+          right: 72,
+          child: Container(
+            height: 44,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                )
+              ],
             ),
-            MarkerLayer(
-              markers: located.map((user) {
-                return Marker(
-                  point: LatLng(
-                      _parseCoord(user['lat']), _parseCoord(user['lon'])),
-                  width: 44,
-                  height: 52,
-                  child: GestureDetector(
-                    onTap: () => _showUserInfo(user),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircleAvatar(
-                          radius: 16,
-                          backgroundColor: const Color(0xff3B5BFE),
-                          child: Text(
-                            user['name'][0].toUpperCase(),
-                            style: const TextStyle(
-                                color: Colors.white, fontSize: 13),
-                          ),
-                        ),
-                        const Icon(Icons.arrow_drop_down,
-                            color: Color(0xff3B5BFE), size: 18),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) {
+                setState(() => _searchText = value.trim());
+                if (_filteredUsers.length == 1) _centerOnUser(_filteredUsers[0]);
+              },
+              style: const TextStyle(fontSize: 14),
+              decoration: InputDecoration(
+                hintText: 'Search by unit number...',
+                hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
+                prefixIcon: const Icon(Icons.search, size: 18, color: Color(0xff3B5BFE)),
+                suffixIcon: _searchText.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.close, size: 16, color: Colors.grey),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchText = '');
+                        },
+                      )
+                    : null,
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 13),
+              ),
             ),
-          ],
+          ),
         ),
 
         // ── RIGHT CONTROLS (zoom + refresh + fit all) ────────
@@ -350,7 +397,7 @@ class _MapPageState extends State<MapPage> {
               padding:
                   const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.92),
+                color: Colors.white.withValues(alpha: 0.92),
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: [
                   BoxShadow(
@@ -358,9 +405,11 @@ class _MapPageState extends State<MapPage> {
                       blurRadius: 8)
                 ],
               ),
-              child: const Text(
-                "No users with location available",
-                style: TextStyle(color: Colors.grey),
+              child: Text(
+                _searchText.isNotEmpty
+                    ? 'No unit found for "$_searchText"'
+                    : 'No users with location available',
+                style: const TextStyle(color: Colors.grey),
               ),
             ),
           ),

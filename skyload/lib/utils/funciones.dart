@@ -311,7 +311,7 @@ void mostrarAlerta(BuildContext context, String titulo, String mensaje, AlertTyp
           onPressed: onPressedSegundoBoton,
           width: MediaQuery.of(context).size.width * 0.4,
           child: TextoManrope(
-            text: 'Rechazar ',
+            text: 'Cancel ',
             fontSize: MediaQuery.of(context).size.width * 0.035,
             margin: EdgeInsets.zero,
             textColor: colorPrincipal,
