@@ -1,3 +1,11 @@
+import java.util.Properties
+
+val localProps = Properties()
+val localPropsFile = rootProject.file("local.properties")
+if (localPropsFile.exists()) {
+    localPropsFile.inputStream().use { localProps.load(it) }
+}
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -28,6 +36,7 @@ android {
     defaultConfig {
         applicationId = "com.example.skyload"
         minSdk = 23
+        manifestPlaceholders["mapsApiKey"] = localProps.getProperty("GOOGLE_MAPS_KEY", "")
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

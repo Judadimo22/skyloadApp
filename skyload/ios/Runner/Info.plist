@@ -45,6 +45,8 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>GoogleMapsApiKey</key>
+	<string>$(GOOGLE_MAPS_KEY)</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Use Face ID to sign in to your account.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
