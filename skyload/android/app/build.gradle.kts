@@ -6,6 +6,12 @@ if (localPropsFile.exists()) {
     localPropsFile.inputStream().use { localProps.load(it) }
 }
 
+val keyProps = Properties()
+val keyPropsFile = rootProject.file("key.properties")
+if (keyPropsFile.exists()) {
+    keyPropsFile.inputStream().use { keyProps.load(it) }
+}
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -17,7 +23,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.skyload"
+    namespace = "com.fleetpoint360.app"
     compileSdk = 35
     ndkVersion = "27.0.12077973"
 
@@ -33,8 +39,17 @@ android {
         jvmTarget = JavaVersion.VERSION_11.toString()
     }
 
+    signingConfigs {
+        create("release") {
+            keyAlias = keyProps["keyAlias"] as? String ?: ""
+            keyPassword = keyProps["keyPassword"] as? String ?: ""
+            storeFile = (keyProps["storeFile"] as? String)?.let { rootProject.file(it) }
+            storePassword = keyProps["storePassword"] as? String ?: ""
+        }
+    }
+
     defaultConfig {
-        applicationId = "com.example.skyload"
+        applicationId = "com.fleetpoint360.app"
         minSdk = 23
         manifestPlaceholders["mapsApiKey"] = localProps.getProperty("GOOGLE_MAPS_KEY", "")
         targetSdk = flutter.targetSdkVersion
@@ -44,16 +59,13 @@ android {
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }
 
 dependencies {
-
-    // ACTUALIZADO (antes era 2.0.4)
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
-
 }
 
 flutter {
