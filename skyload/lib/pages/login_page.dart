@@ -187,13 +187,7 @@ class LoginPageState extends State<LoginPage> {
 
   Future<bool> requestLocationPermissions() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      if (mounted) {
-        mostrarAlerta(context, '', 'Please enable location services on your device.',
-            AlertType.none, () => Navigator.pop(context), false, () {}, 'OK');
-      }
-      return false;
-    }
+    if (!serviceEnabled) return false;
 
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
@@ -201,10 +195,6 @@ class LoginPageState extends State<LoginPage> {
     }
     if (permission == LocationPermission.denied ||
         permission == LocationPermission.deniedForever) {
-      if (mounted) {
-        mostrarAlerta(context, '', 'Location permission is required for tracking loads.',
-            AlertType.none, () => Navigator.pop(context), false, () {}, 'OK');
-      }
       return false;
     }
 
@@ -250,13 +240,13 @@ class LoginPageState extends State<LoginPage> {
         final name = _extractName(jsonResponse, jwt, email);
         await _saveSession(myToken, jwt['email'] ?? email, name, false);
 
-        bool permissionGranted = await requestLocationPermissions();
-        if (!permissionGranted) { AlertaLoading.hide(); return; }
-
-        try {
-          final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-          await put_('/updateLocation/${jwt['_id']}', {'lat': pos.latitude, 'lon': pos.longitude});
-        } catch (_) {}
+        final permissionGranted = await requestLocationPermissions();
+        if (permissionGranted) {
+          try {
+            final pos = await Geolocator.getCurrentPosition(locationSettings: const LocationSettings(accuracy: LocationAccuracy.high));
+            await put_('/updateLocation/${jwt['_id']}', {'lat': pos.latitude, 'lon': pos.longitude});
+          } catch (_) {}
+        }
 
         AlertaLoading.hide();
         if (mounted) _navigateHome(myToken, false);
