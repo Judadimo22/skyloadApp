@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:skyload/pages/login_page.dart';
+import 'package:skyload/pages/profile_page.dart';
 import 'package:rflutter_alert/rflutter_alert.dart';
 import 'package:skyload/utils/funciones.dart';
 import 'package:intl/intl.dart';
@@ -37,8 +38,8 @@ class _LoadsPageState extends State<LoadsPage> {
     Map<String, dynamic> jwtDecodedToken = JwtDecoder.decode(widget.token);
     userId = jwtDecodedToken['_id'];
     getLoads(context);
-    startLocationTracking();
     _statusPollTimer = Timer.periodic(const Duration(seconds: 10), (_) => _pollLoads());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initLocationTracking());
   }
 
   @override
@@ -46,6 +47,49 @@ class _LoadsPageState extends State<LoadsPage> {
     _statusPollTimer?.cancel();
     stopLocationTracking();
     super.dispose();
+  }
+
+  Future<void> _initLocationTracking() async {
+    if (!Platform.isAndroid) {
+      startLocationTracking();
+      return;
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.whileInUse) {
+      if (!mounted) return;
+      final accepted = await showDialog<bool>(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Background Location Access'),
+              content: const Text(
+                'Fleet Point 360 needs to access your location at all times, '
+                'even when the app is closed or running in the background.\n\n'
+                'This is used to:\n'
+                '• Show your real-time position to dispatchers.\n'
+                '• Update your load status during the trip.\n\n'
+                'On the next screen, select "Allow all the time" to enable '
+                'continuous tracking.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Not now'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('Continue'),
+                ),
+              ],
+            ),
+          ) ??
+          false;
+
+      if (accepted) await Geolocator.requestPermission();
+    }
+
+    startLocationTracking();
   }
 
   void startLocationTracking() {
@@ -106,7 +150,6 @@ class _LoadsPageState extends State<LoadsPage> {
       setState(() {
         loadList = loads;
       });
-      startLocationTracking();
     } catch (error) {
       print('Error: $error');
     }
@@ -253,7 +296,7 @@ class _LoadsPageState extends State<LoadsPage> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 14, vertical: 10),
                         decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.1),
+                          color: Colors.red.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Row(
@@ -276,6 +319,27 @@ class _LoadsPageState extends State<LoadsPage> {
                       style: TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ProfilePage(token: widget.token),
+                        ),
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: colorPrincipal.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.person_outline,
+                          color: colorPrincipal,
+                          size: 20,
+                        ),
                       ),
                     ),
                   ],

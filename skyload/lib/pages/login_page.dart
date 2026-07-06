@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -198,9 +197,6 @@ class LoginPageState extends State<LoginPage> {
       return false;
     }
 
-    if (Platform.isAndroid && permission != LocationPermission.always) {
-      await Geolocator.requestPermission();
-    }
     return true;
   }
 
@@ -226,7 +222,7 @@ class LoginPageState extends State<LoginPage> {
 
     if (email.isNotEmpty && password.isNotEmpty) {
       final response = await http.post(
-        Uri.parse('${backendBaseUrl}/loginUser'),
+        Uri.parse('$backendBaseUrl/loginUser'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': email, 'password': password, 'fcmToken': fcmToken}),
       );
@@ -267,7 +263,7 @@ class LoginPageState extends State<LoginPage> {
 
     if (email.isNotEmpty && password.isNotEmpty) {
       final response = await http.post(
-        Uri.parse('${backendBaseUrl}/loginAdmin'),
+        Uri.parse('$backendBaseUrl/loginAdmin'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': email, 'password': password}),
       );
