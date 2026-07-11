@@ -50,12 +50,21 @@ class _LoadsPageState extends State<LoadsPage> {
   }
 
   Future<void> _initLocationTracking() async {
-    if (!Platform.isAndroid) {
+    LocationPermission permission = await Geolocator.checkPermission();
+
+    // If permission was never granted (e.g. biometric login skipped login flow),
+    // request whileInUse first before trying to upgrade to always.
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
       startLocationTracking();
       return;
     }
 
-    LocationPermission permission = await Geolocator.checkPermission();
+    // Show prominent disclosure before requesting "Allow all the time".
     if (permission == LocationPermission.whileInUse) {
       if (!mounted) return;
       final accepted = await showDialog<bool>(
@@ -108,6 +117,11 @@ class _LoadsPageState extends State<LoadsPage> {
             accuracy: LocationAccuracy.high,
             distanceFilter: 0,
             intervalDuration: const Duration(seconds: 10),
+            foregroundNotificationConfig: const ForegroundNotificationConfig(
+              notificationTitle: 'Fleet Point 360',
+              notificationText: 'Tracking your location in the background.',
+              enableWakeLock: true,
+            ),
           );
 
     positionStream = Geolocator.getPositionStream(locationSettings: locationSettings)
@@ -410,7 +424,40 @@ class _LoadsPageState extends State<LoadsPage> {
             Expanded(
               child: RefreshIndicator(
                 onRefresh: () => _pollLoads(),
-                child: ListView.builder(
+                child: LoadsFiltradas.isEmpty
+                    ? ListView(
+                        children: [
+                          SizedBox(height: MediaQuery.of(context).size.height * 0.18),
+                          Icon(
+                            filtroSeleccionado == "active"
+                                ? Icons.local_shipping_outlined
+                                : Icons.check_circle_outline,
+                            size: 72,
+                            color: Colors.grey[350],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            filtroSeleccionado == "active"
+                                ? 'No active loads'
+                                : 'No completed loads',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey[500],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            filtroSeleccionado == "active"
+                                ? 'You have no loads assigned at the moment.\nPull down to refresh.'
+                                : 'No loads have been completed yet.\nPull down to refresh.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 14, color: Colors.grey[400]),
+                          ),
+                        ],
+                      )
+                    : ListView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 itemCount: LoadsFiltradas.length,
                 itemBuilder: (context, index) {
@@ -446,7 +493,7 @@ class _LoadsPageState extends State<LoadsPage> {
                                   borderRadius: BorderRadius.circular(12),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.green.withOpacity(0.4),
+                                      color: Colors.green.withValues(alpha: 0.4),
                                       blurRadius: 6,
                                       offset: const Offset(0, 3),
                                     )
@@ -479,7 +526,7 @@ class _LoadsPageState extends State<LoadsPage> {
                               Container(
                                 padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
-                                  color: Colors.blue.withOpacity(0.1),
+                                  color: Colors.blue.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: const Icon(Icons.upload_rounded, size: 20, color: Colors.blue),
@@ -541,7 +588,7 @@ class _LoadsPageState extends State<LoadsPage> {
                               Container(
                                 padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
-                                  color: Colors.orange.withOpacity(0.1),
+                                  color: Colors.orange.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: const Icon(Icons.download_rounded, size: 20, color: Colors.orange),

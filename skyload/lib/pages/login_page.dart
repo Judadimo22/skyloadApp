@@ -7,7 +7,6 @@ import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:skyload/pages/admin/home_page_admin.dart';
 import 'package:skyload/pages/loads_page.dart';
-import 'package:skyload/pages/register_page.dart';
 import 'package:skyload/utils/funciones.dart';
 import 'package:http/http.dart' as http;
 import 'package:rflutter_alert/rflutter_alert.dart';
@@ -17,6 +16,9 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 
 const _storage = FlutterSecureStorage(
   aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  // first_unlock allows keychain access after the first unlock since boot,
+  // which keeps the session alive even when iOS suspends the app in background.
+  iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
 );
 
 class LoginPage extends StatefulWidget {
@@ -91,6 +93,19 @@ class LoginPageState extends State<LoginPage> {
     } catch (_) {}
 
     setState(() => _checkingSession = false);
+
+    // When the app is killed by iOS and relaunched, auto-resume the session
+    // so the user does not perceive it as a logout.
+    if (sessionValid) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (_biometricsAvailable) {
+          _biometricLogin();
+        } else {
+          _navigateHome(_savedToken!, _savedIsAdmin);
+        }
+      });
+    }
   }
 
   Future<void> _clearStoredSession() async {
@@ -375,25 +390,6 @@ class LoginPageState extends State<LoginPage> {
                         _continueButton(),
                       ],
                     ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-                GestureDetector(
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const RegisterPage()),
-                  ),
-                  child: const Text.rich(
-                    TextSpan(
-                      text: "Don't have an account? ",
-                      style: TextStyle(color: Colors.white70, fontSize: 14),
-                      children: [
-                        TextSpan(
-                          text: 'Create one',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, decoration: TextDecoration.underline),
-                        ),
-                      ],
-                    ),
                   ),
                 ),
                 const SizedBox(height: 40),

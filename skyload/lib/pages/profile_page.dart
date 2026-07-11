@@ -8,6 +8,7 @@ import 'package:skyload/utils/funciones.dart';
 
 const _storage = FlutterSecureStorage(
   aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
 );
 
 class ProfilePage extends StatefulWidget {
