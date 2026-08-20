@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:skyload/pages/login_page.dart';
 import 'package:skyload/pages/profile_page.dart';
 import 'package:rflutter_alert/rflutter_alert.dart';
+import 'package:skyload/services/location_background_service.dart';
 import 'package:skyload/utils/funciones.dart';
 import 'package:intl/intl.dart';
 
@@ -27,9 +27,6 @@ class _LoadsPageState extends State<LoadsPage> {
   List<dynamic> loadList = [];
   late String userId;
 
-  StreamSubscription<Position>? positionStream;
-  Timer? _locationTimer;
-  Position? _lastPosition;
   Timer? _statusPollTimer;
 
   @override
@@ -45,22 +42,19 @@ class _LoadsPageState extends State<LoadsPage> {
   @override
   void dispose() {
     _statusPollTimer?.cancel();
-    stopLocationTracking();
     super.dispose();
   }
 
   Future<void> _initLocationTracking() async {
     LocationPermission permission = await Geolocator.checkPermission();
 
-    // If permission was never granted (e.g. biometric login skipped login flow),
-    // request whileInUse first before trying to upgrade to always.
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
 
     if (permission == LocationPermission.denied ||
         permission == LocationPermission.deniedForever) {
-      startLocationTracking();
+      await startLocationService(userId: userId, baseUrl: backendBaseUrl);
       return;
     }
 
@@ -98,63 +92,7 @@ class _LoadsPageState extends State<LoadsPage> {
       if (accepted) await Geolocator.requestPermission();
     }
 
-    startLocationTracking();
-  }
-
-  void startLocationTracking() {
-    if (positionStream != null) return;
-
-    final LocationSettings locationSettings = Platform.isIOS
-        ? AppleSettings(
-            accuracy: LocationAccuracy.high,
-            distanceFilter: 0,
-            activityType: ActivityType.automotiveNavigation,
-            pauseLocationUpdatesAutomatically: false,
-            allowBackgroundLocationUpdates: true,
-            showBackgroundLocationIndicator: true,
-          )
-        : AndroidSettings(
-            accuracy: LocationAccuracy.high,
-            distanceFilter: 0,
-            intervalDuration: const Duration(seconds: 10),
-            foregroundNotificationConfig: const ForegroundNotificationConfig(
-              notificationTitle: 'Fleet Point 360',
-              notificationText: 'Tracking your location in the background.',
-              enableWakeLock: true,
-            ),
-          );
-
-    positionStream = Geolocator.getPositionStream(locationSettings: locationSettings)
-        .listen(
-          (Position position) {
-            _lastPosition = position;
-            sendLocationToBackend(position.latitude, position.longitude, position.speed);
-          },
-          onError: (_) {
-            // Stream error — restart after a short delay
-            positionStream?.cancel();
-            positionStream = null;
-            Future.delayed(const Duration(seconds: 5), startLocationTracking);
-          },
-        );
-
-    // Fallback timer: send last known position every 20 s even without movement
-    _locationTimer ??= Timer.periodic(const Duration(seconds: 20), (_) async {
-      if (_lastPosition != null) {
-        sendLocationToBackend(
-          _lastPosition!.latitude,
-          _lastPosition!.longitude,
-          _lastPosition!.speed,
-        );
-      } else {
-        try {
-          final pos = await Geolocator.getLastKnownPosition();
-          if (pos != null) {
-            sendLocationToBackend(pos.latitude, pos.longitude, pos.speed);
-          }
-        } catch (_) {}
-      }
-    });
+    await startLocationService(userId: userId, baseUrl: backendBaseUrl);
   }
 
   Future<void> getLoads(BuildContext context) async {
@@ -181,21 +119,6 @@ class _LoadsPageState extends State<LoadsPage> {
         });
       }
     } catch (_) {}
-  }
-
-  Future<void> sendLocationToBackend(double lat, double lon, double speed) async {
-    try {
-      await put_(
-        '/updateLocation/$userId',
-        {
-          "lat": lat,
-          "lon": lon,
-          "speed": (speed < 0 ? 0 : speed) * 2.23694
-        },
-      );
-    } catch (e) {
-      print("Error sending location: $e");
-    }
   }
 
   void updateLoad(loadId) async {
@@ -679,10 +602,7 @@ class _LoadsPageState extends State<LoadsPage> {
   }
 
   void stopLocationTracking() {
-    positionStream?.cancel();
-    positionStream = null;
-    _locationTimer?.cancel();
-    _locationTimer = null;
+    stopLocationService();
   }
 
   void _showExitConfirmation() {

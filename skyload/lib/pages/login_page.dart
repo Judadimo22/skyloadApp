@@ -205,6 +205,34 @@ class LoginPageState extends State<LoginPage> {
 
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
+      if (!mounted) return false;
+      final accepted = await showDialog<bool>(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Location Access'),
+              content: const Text(
+                'Fleet Point 360 needs access to your device\'s location.\n\n'
+                'This is used to:\n'
+                '• Show your real-time position to dispatchers.\n'
+                '• Update your location when you start a trip.\n\n'
+                'Your location data is only used while you are active in the app.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Not now'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('Continue'),
+                ),
+              ],
+            ),
+          ) ??
+          false;
+
+      if (!accepted) return false;
       permission = await Geolocator.requestPermission();
     }
     if (permission == LocationPermission.denied ||

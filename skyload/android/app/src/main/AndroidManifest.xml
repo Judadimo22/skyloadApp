@@ -49,6 +49,12 @@
             android:exported="false"
             android:foregroundServiceType="location"/>
 
+        <!-- Background service that survives app kill for continuous location tracking -->
+        <service
+            android:name="id.flutter.flutter_background_service.BackgroundService"
+            android:foregroundServiceType="location"
+            android:exported="false"/>
+
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="${mapsApiKey}"/>

@@ -5,6 +5,7 @@ import 'package:skyload/pages/login_page.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:skyload/services/notification_service.dart';
+import 'package:skyload/services/location_background_service.dart';
 import 'firebase_options.dart';
 
 
@@ -17,6 +18,7 @@ void main() async {
   );
 
   await NotificationService.init();
+  await initLocationBackgroundService();
   FirebaseMessaging.onMessage.listen((RemoteMessage message) {
     if (message.notification != null) {
       NotificationService.showNotification(
